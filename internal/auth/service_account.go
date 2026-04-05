@@ -1,7 +1,16 @@
 package auth
 
-import "google.golang.org/api/option"
+import (
+	"fmt"
+	"os"
+
+	"google.golang.org/api/option"
+)
 
 func ServiceAccountOption(credentialsPath string) (option.ClientOption, error) {
-	return option.WithCredentialsFile(credentialsPath), nil
+	data, err := os.ReadFile(credentialsPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read credentials file: %w", err)
+	}
+	return option.WithCredentialsJSON(data), nil
 }

@@ -139,7 +139,7 @@ func loadToken(path string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var tok oauth2.Token
 	if err := json.NewDecoder(f).Decode(&tok); err != nil {
@@ -148,15 +148,19 @@ func loadToken(path string) (*oauth2.Token, error) {
 	return &tok, nil
 }
 
-func saveToken(path string, token *oauth2.Token) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+func saveToken(path string, token *oauth2.Token) (err error) {
+	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return fmt.Errorf("unable to create token directory: %w", err)
 	}
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return fmt.Errorf("unable to save token: %w", err)
+	f, ferr := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if ferr != nil {
+		return fmt.Errorf("unable to save token: %w", ferr)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("unable to close token file: %w", cerr)
+		}
+	}()
 	return json.NewEncoder(f).Encode(token)
 }
 
@@ -180,13 +184,13 @@ func getTokenFromWeb(ctx context.Context, oauthCfg *oauth2.Config, tokenPath str
 				http.Error(w, "Authorization failed.", http.StatusBadRequest)
 				return
 			}
-			fmt.Fprintln(w, "<html><body><h2>Authorization successful!</h2><p>You can close this tab and return to the terminal.</p></body></html>")
+			_, _ = fmt.Fprintln(w, "<html><body><h2>Authorization successful!</h2><p>You can close this tab and return to the terminal.</p></body></html>")
 			codeCh <- code
 		}),
 	}
 
 	go func() { _ = server.Serve(listener) }()
-	defer server.Close()
+	defer func() { _ = server.Close() }()
 
 	// ApprovalForce (prompt=consent) ensures Google always returns a refresh_token,
 	// even if the user already authorized this app previously.
