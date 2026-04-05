@@ -1,0 +1,18 @@
+project_id: my-i18n
+sheet:
+    id: 1EHRUEegPotOwjOqtLw8lYglimiMUlM5k4peIMUqEYic
+    name: abcd
+auth:
+    type: oauth
+    credentials_path: .i18n/credentials.json
+    token_path: .i18n/token.json
+languages:
+    - en-US
+    - id-ID
+paths:
+    base: ./base.json
+    output: ./locales
+options:
+    nested_json: true
+    sort_keys: true
+    keep_unused: true

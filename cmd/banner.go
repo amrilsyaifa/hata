@@ -1,0 +1,19 @@
+package cmd
+
+import "fmt"
+
+const banner = `
+██╗  ██╗ █████╗ ████████╗ █████╗ 
+██║  ██║██╔══██╗╚══██╔══╝██╔══██╗
+███████║███████║   ██║   ███████║
+██╔══██║██╔══██║   ██║   ██╔══██║
+██║  ██║██║  ██║   ██║   ██║  ██║
+╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝
+`
+
+func printBanner() {
+	fmt.Print(banner)
+	fmt.Println("  i18n sync between your codebase and Google Sheets")
+	fmt.Println("  github.com/amrilsyaifa/hata")
+	fmt.Println()
+}

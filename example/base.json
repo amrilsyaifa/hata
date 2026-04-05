@@ -1,0 +1,30 @@
+{
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "welcome": "Hello {{name}}",
+    "error": {
+      "invalid_credentials": "Invalid email or password",
+      "account_locked": "Your account has been locked"
+    }
+  },
+  "home": {
+    "title": "Welcome to our app",
+    "subtitle": "Get started below",
+    "cta": "Get Started"
+  },
+  "profile": {
+    "title": "My Profile",
+    "edit": "Edit Profile",
+    "save": "Save Changes",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "not_found": "Page not found",
+    "server_error": "Something went wrong. Please try again."
+  },
+  "test": {
+    "placeholder": "This is a placeholder translation"
+  }
+}

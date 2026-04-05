@@ -1,0 +1,26 @@
+# Credentials and tokens — never commit these
+.i18n/
+
+# JSON files (credentials, tokens, generated locales)
+*.json
+
+# But allow base.json (source of truth) and example files
+!base.json
+!example/**/*.json
+
+# Compiled binary
+hata
+hata.exe
+
+# Go output
+dist/
+
+# Generated locales (commit only if you want to version them)
+locales/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
