@@ -9,10 +9,13 @@ auth:
 languages:
     - en-US
     - id-ID
+aliases:
+    en-US: en
+    id-ID: id
 paths:
     base: ./base.json
     output: ./locales
 options:
-    nested_json: true
+    nested_json: false
     sort_keys: true
     keep_unused: true

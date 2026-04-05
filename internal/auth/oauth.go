@@ -76,6 +76,28 @@ func parseCredentials(b []byte) (*oauth2.Config, error) {
 	}, nil
 }
 
+// savingTokenSource wraps an oauth2.TokenSource and writes refreshed tokens to disk
+// so subsequent runs can reuse them without a browser login.
+type savingTokenSource struct {
+	src      oauth2.TokenSource
+	path     string
+	lastSeen string
+}
+
+func (s *savingTokenSource) Token() (*oauth2.Token, error) {
+	tok, err := s.src.Token()
+	if err != nil {
+		return nil, err
+	}
+	if tok.AccessToken != s.lastSeen {
+		s.lastSeen = tok.AccessToken
+		if saveErr := saveToken(s.path, tok); saveErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to persist refreshed token: %v\n", saveErr)
+		}
+	}
+	return tok, nil
+}
+
 func OAuthOption(ctx context.Context, credentialsPath, tokenPath string) (option.ClientOption, error) {
 	b, err := os.ReadFile(credentialsPath)
 	if err != nil {
@@ -88,15 +110,28 @@ func OAuthOption(ctx context.Context, credentialsPath, tokenPath string) (option
 	}
 
 	token, err := loadToken(tokenPath)
-	if err != nil || !token.Valid() {
+	if err != nil {
+		// No cached token — must go through browser.
 		token, err = getTokenFromWeb(ctx, oauthCfg, tokenPath)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	client := oauthCfg.Client(ctx, token)
-	return option.WithHTTPClient(client), nil
+	// If the access token is expired but we have a refresh_token, the oauth2
+	// library will renew it automatically. Only force browser auth when there
+	// is no refresh_token at all.
+	if !token.Valid() && token.RefreshToken == "" {
+		token, err = getTokenFromWeb(ctx, oauthCfg, tokenPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Wrap with a persisting source so any silent refresh is written back to disk.
+	base := oauthCfg.TokenSource(ctx, token)
+	src := &savingTokenSource{src: base, path: tokenPath, lastSeen: token.AccessToken}
+	return option.WithTokenSource(src), nil
 }
 
 func loadToken(path string) (*oauth2.Token, error) {
@@ -153,7 +188,9 @@ func getTokenFromWeb(ctx context.Context, oauthCfg *oauth2.Config, tokenPath str
 	go func() { _ = server.Serve(listener) }()
 	defer server.Close()
 
-	authURL := oauthCfg.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	// ApprovalForce (prompt=consent) ensures Google always returns a refresh_token,
+	// even if the user already authorized this app previously.
+	authURL := oauthCfg.AuthCodeURL("state-token", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	fmt.Printf("Opening browser for authentication...\n")
 	fmt.Printf("Redirect URI (must be registered in Google Cloud Console): %s\n\n", redirectURL)
 	fmt.Printf("If the browser does not open, visit:\n  %s\n\n", authURL)

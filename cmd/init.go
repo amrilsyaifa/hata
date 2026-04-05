@@ -60,6 +60,24 @@ func runInit(_ *cobra.Command, _ []string) error {
 	basePath := prompt(reader, "\nBase file path", "./base.json")
 	outputPath := prompt(reader, "Output directory", "./locales")
 
+	// Aliases: suggest first part of locale code (e.g. "en" from "en-US")
+	fmt.Println("\nSet a short alias for each language (used as the output filename).")
+	fmt.Println("Press Enter to keep the full locale code.")
+	aliases := make(map[string]string, len(langs))
+	for _, lang := range langs {
+		defaultAlias := strings.SplitN(lang, "-", 2)[0]
+		alias := prompt(reader, fmt.Sprintf("  Alias for %s", lang), defaultAlias)
+		if alias != "" && alias != lang {
+			aliases[lang] = alias
+		}
+	}
+
+	fmt.Println("\nExport format when pulling translations:")
+	fmt.Println("  1. Nested JSON  (e.g. { \"auth\": { \"login\": \"Sign in\" } })")
+	fmt.Println("  2. Flat JSON    (e.g. { \"auth.login\": \"Sign in\" })")
+	exportChoice := prompt(reader, "Choice [1/2]", "1")
+	nestedJSON := exportChoice != "2"
+
 	newCfg := &config.Config{
 		ProjectID: projectID,
 		Sheet: config.SheetConf{
@@ -72,12 +90,13 @@ func runInit(_ *cobra.Command, _ []string) error {
 			TokenPath:       tokenPath,
 		},
 		Languages: langs,
+		Aliases:   aliases,
 		Paths: config.PathConf{
 			Base:   basePath,
 			Output: outputPath,
 		},
 		Options: config.Options{
-			NestedJSON: true,
+			NestedJSON: nestedJSON,
 			SortKeys:   true,
 			KeepUnused: true,
 		},
@@ -89,6 +108,11 @@ func runInit(_ *cobra.Command, _ []string) error {
 
 	fmt.Printf("\nConfig saved to %s\n", cfgFile)
 	fmt.Printf("Selected languages: %s\n", strings.Join(langs, ", "))
+	if nestedJSON {
+		fmt.Println("Export format: nested JSON")
+	} else {
+		fmt.Println("Export format: flat JSON")
+	}
 	return nil
 }
 

@@ -22,19 +22,38 @@ After running `hata push`, your sheet will look like:
 
 > The `base` column is filled automatically by `hata push`. Translators only edit the language columns (`en-US`, `id-ID`, …).
 
+## Aliases
+
+The config uses `aliases` to map full locale codes to short output filenames:
+
+```yaml
+aliases:
+  en-US: en   # → locales/en.json
+  id-ID: id   # → locales/id.json
+```
+
+The sheet columns always use the full code (`en-US`, `id-ID`). Aliases only affect output filenames.
+
+## Export format
+
+Controlled by `options.nested_json` in `i18n.config.yml`.
+
+**Nested JSON** (`nested_json: true`, default): keys are expanded into objects.
+
+**Flat JSON** (`nested_json: false`): keys stay as dot-notation strings.
+
 ## After `hata pull`
 
-The `locales/` directory will be generated:
+The `locales/` directory will be generated (using aliases as filenames):
 
 ```
 locales/
-├── en-US.json
-├── id-ID.json
-└── ja-JP.json
+├── en.json
+├── id.json
+└── ja-JP.json   ← no alias configured, uses full code
 ```
 
-Each file is nested JSON:
-
+**Nested output** (`nested_json: true`):
 ```json
 {
   "auth": {
@@ -47,6 +66,31 @@ Each file is nested JSON:
   }
 }
 ```
+
+**Flat output** (`nested_json: false`):
+```json
+{
+  "auth.login": "Login",
+  "auth.logout": "Logout",
+  "auth.welcome": "Hello {{name}}",
+  "home.title": "Welcome to our app"
+}
+```
+
+## Migrating an existing project
+
+If you already have `id.json` with many translations, import it in one command:
+
+```bash
+# Create key rows in sheet first
+hata push
+
+# Import existing translations into the matching column
+hata import --file ./locales/id.json --lang id-ID
+hata import --file ./locales/en.json --lang en-US
+```
+
+`import` accepts nested or flat JSON automatically and only updates rows that already exist in the sheet.
 
 ## OAuth setup
 

@@ -47,14 +47,32 @@ func FlatToNested(flat map[string]string, sortKeys bool) map[string]interface{} 
 	return result
 }
 
-func GenerateLocaleFiles(outputDir string, langData map[string]map[string]string, sortKeys bool) error {
+func GenerateLocaleFiles(outputDir string, langData map[string]map[string]string, sortKeys, nestedJSON bool) error {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	for lang, flat := range langData {
-		nested := FlatToNested(flat, sortKeys)
-		data, err := json.MarshalIndent(nested, "", "  ")
+		var toMarshal interface{}
+		if nestedJSON {
+			toMarshal = FlatToNested(flat, sortKeys)
+		} else {
+			if sortKeys {
+				keys := make([]string, 0, len(flat))
+				for k := range flat {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+				ordered := make(map[string]string, len(flat))
+				for _, k := range keys {
+					ordered[k] = flat[k]
+				}
+				toMarshal = ordered
+			} else {
+				toMarshal = flat
+			}
+		}
+		data, err := json.MarshalIndent(toMarshal, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal %s: %w", lang, err)
 		}
