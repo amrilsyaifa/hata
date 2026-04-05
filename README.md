@@ -9,7 +9,7 @@
 ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝
 ```
 
-> A Golang-based CLI tool for syncing i18n translation keys between your codebase and Google Sheets.
+> A lightweight **Translation Management System (TMS)** — sync i18n translation keys between your codebase and Google Sheets with a single CLI command.
 
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -19,7 +19,9 @@
 
 ## Overview
 
-**Hata** bridges the gap between your codebase's translation keys and your translators. Developers push keys from `base.json` to a shared Google Sheet. Translators fill in the translations without touching any code. Developers then pull the completed translations back as ready-to-use JSON files.
+**Hata** is a lightweight translation management tool ✅ that bridges the gap between your codebase's translation keys and your translators. No more copy-pasting between JSON files and spreadsheets — developers push keys from `base.json` to a shared Google Sheet, translators fill in the translations without touching any code, and developers pull the completed translations back as ready-to-use JSON files.
+
+If you're looking for a simple Translation Management System (TMS) that works with Google Sheets, `hata` is built for you.
 
 ```
 base.json  →  (push)  →  Google Sheet  →  (pull)  →  locales/*.json  →  Your App
