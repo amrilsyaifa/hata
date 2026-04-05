@@ -12,6 +12,7 @@
 > A lightweight **Translation Management System (TMS)** — sync i18n translation keys between your codebase and Google Sheets with a single CLI command.
 
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue)](https://golang.org)
+[![CI](https://github.com/amrilsyaifa/hata/actions/workflows/ci.yml/badge.svg)](https://github.com/amrilsyaifa/hata/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Author](https://img.shields.io/badge/author-amrilsyaifa-orange)](https://github.com/amrilsyaifa)
 
@@ -31,13 +32,16 @@ base.json  →  (push)  →  Google Sheet  →  (pull)  →  locales/*.json  →
 
 ## Features
 
-- **`init`** — Interactive setup wizard with locale picker
+- **`init`** — Interactive setup wizard with locale picker, alias config, and export format selection
 - **`push`** — Sync keys from `base.json` → Google Sheet, filling the `base` column; never touches language columns
-- **`pull`** — Generate per-language JSON files from the sheet
+- **`pull`** — Generate per-language JSON files from the sheet (flat or nested output)
 - **`diff`** — Show what's out of sync between `base.json` and the sheet
+- **`import`** — Bulk-import an existing locale JSON file into a sheet column (great for migrating existing projects)
 - Supports **Service Account** and **OAuth** authentication
 - Flat and nested `base.json` input support (both flattened to dot-notation keys)
-- Flat key → nested JSON output (`auth.login` → `{"auth": {"login": "..."}}`) in pulled locale files- Interpolation passthrough (`Hello {{name}}`)
+- **Nested or flat JSON output** — controlled by `nested_json` option in config
+- **Language aliases** — export as `en.json` / `id.json` instead of `en-US.json` / `id-ID.json`
+- Interpolation passthrough (`Hello {{name}}`)
 - Interactive locale selector with search/filter (250+ locales)
 
 ---
@@ -137,7 +141,9 @@ This will guide you through:
 - Google Sheet ID (from the sheet URL: `https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit`)
 - Auth method (Service Account or OAuth)
 - Language selection (interactive picker — Space to select, Enter to confirm)
+- **Short aliases** for each locale (e.g. `en` for `en-US`, `id` for `id-ID`) — used as output filenames
 - Base file and output directory paths
+- **Export format** — nested JSON or flat JSON
 
 It generates `i18n.config.yml` in your project root.
 
@@ -196,8 +202,9 @@ New keys are appended to the sheet with the **base** text pre-filled. Language c
 hata pull
 ```
 
-Generates `locales/en.json`, `locales/id.json`, etc.:
+Generates one JSON file per language. If aliases are configured (`en-US → en`), files are named `locales/en.json`, `locales/id.json`, etc. Output format (nested or flat) is controlled by `nested_json` in config.
 
+**Nested output** (`nested_json: true`, default):
 ```json
 {
   "auth": {
@@ -212,7 +219,36 @@ Generates `locales/en.json`, `locales/id.json`, etc.:
 }
 ```
 
-### 6. Check for drift
+**Flat output** (`nested_json: false`):
+```json
+{
+  "auth.login": "Login",
+  "auth.logout": "Logout",
+  "auth.welcome": "Hello {{name}}",
+  "home.subtitle": "Get started below",
+  "home.title": "Welcome to our app"
+}
+```
+
+### 6. Migrate an existing locale file into the sheet
+
+If you already have `locales/id.json` with many translations, import it directly:
+
+```bash
+# First push your keys to create sheet rows
+hata push
+
+# Then import the existing translations into the id-ID column
+hata import --file ./locales/id.json --lang id-ID
+hata import --file ./locales/en.json --lang en-US
+```
+
+- Accepts **nested or flat** JSON (auto-flattened)
+- Updates only keys that already exist in the sheet
+- Prints a list of any keys not yet in the sheet
+
+### 7. Check for drift
+
 
 ```bash
 hata diff
@@ -245,20 +281,68 @@ auth:
   token_path: ".i18n/token.json" # used by oauth only
 
 languages:
-  - en
-  - id
+  - en-US
+  - id-ID
+
+# Optional: short aliases used as output filenames when pulling.
+# Sheet columns still use the full locale code (en-US, id-ID).
+aliases:
+  en-US: en   # → locales/en.json
+  id-ID: id   # → locales/id.json
 
 paths:
   base: "./base.json"
   output: "./locales"
 
 options:
-  nested_json: true   # convert flat keys to nested JSON
+  nested_json: true   # true = nested JSON output, false = flat key output
   sort_keys: true     # sort keys alphabetically in output
   keep_unused: true   # keep stale keys in sheet (don't auto-delete)
 ```
 
 > **Security:** Add `.i18n/` to your `.gitignore` to avoid committing credentials.
+
+---
+
+## Command Reference
+
+| Command | Description |
+|---|---|
+| `hata init` | Interactive setup — creates `i18n.config.yml` |
+| `hata push` | Sync new keys from `base.json` to sheet |
+| `hata pull` | Download translations from sheet → locale JSON files |
+| `hata diff` | Show keys that are out of sync |
+| `hata import -f <file> -l <lang>` | Import an existing locale file into a sheet column |
+| `hata clean` | Interactively remove stale keys from Google Sheet |
+
+### `hata import` flags
+
+| Flag | Short | Description |
+|---|---|---|
+| `--file` | `-f` | Path to the locale JSON file (required) |
+| `--lang` | `-l` | Locale code as it appears in the sheet header, e.g. `id-ID` (required) |
+
+```bash
+hata import --file ./locales/id.json --lang id-ID
+hata import -f ./locales/en.json -l en-US
+```
+
+### `hata clean`
+
+Finds keys that exist in the Google Sheet but are no longer present in your `base.json`. Presents an interactive multi-select list, then permanently deletes the confirmed rows from the sheet.
+
+```bash
+hata clean
+```
+
+**Flow:**
+
+1. Reads all keys from the sheet and compares against `base.json`.
+2. Displays a multi-select list of stale keys (Space to toggle, Enter to confirm).
+3. Asks for a final confirmation before deleting.
+4. Deletes selected rows from the sheet in a single batch update.
+
+> **Note:** Deletions cannot be undone. Review the key list carefully before confirming.
 
 ---
 
@@ -469,6 +553,48 @@ Dir['config/locales/*.json'].each do |f|
   File.write("config/locales/#{lang}.yml", { lang => data }.to_yaml)
 end
 ```
+
+---
+
+## Development
+
+### Running Tests
+
+The project has unit tests covering all internal packages. Run them locally with:
+
+```bash
+go test ./internal/...
+```
+
+Run with verbose output and the race detector (mirrors what CI runs):
+
+```bash
+go test -v -race -count=1 ./internal/...
+```
+
+| Package | What's covered |
+|---|---|
+| `internal/auth` | `saveToken`, `loadToken`, token file creation, `savingTokenSource` persist / no-write |
+| `internal/config` | Round-trip YAML save/load, missing file, invalid YAML |
+| `internal/diff` | In-sync, missing-in-sheet, unused-in-base, empty input, sorted output |
+| `internal/i18n` | `ReadBase` (valid/missing/bad JSON), `SortedKeys`, `FlatToNested` (simple/nested/deep/empty), `GenerateLocaleFiles` (flat & nested) |
+| `internal/locale` | `Display` format, `CodeFromDisplay` roundtrip, unique locale codes, common locale presence |
+
+### Continuous Integration
+
+Every pull request targeting `main` must pass two required checks defined in [.github/workflows/ci.yml](.github/workflows/ci.yml):
+
+| Job | What it does |
+|---|---|
+| **Test** | `go build ./...` + `go test -v -race -count=1 ./...` |
+| **Lint** | `golangci-lint` with a 5-minute timeout |
+
+The **Merge** button on a PR is disabled until both checks are green. To enforce this hard requirement, enable branch protection in GitHub:
+
+1. Go to **Settings → Branches → Add rule** for `main`
+2. Enable **"Require status checks to pass before merging"**
+3. Add `Test` and `Lint` as required status checks
+4. Enable **"Require branches to be up to date before merging"**
 
 ---
 

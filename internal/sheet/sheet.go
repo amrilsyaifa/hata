@@ -170,3 +170,113 @@ func (c *Client) BatchUpdateCells(updates []CellUpdate) error {
 	}
 	return nil
 }
+
+// UpdateTranslations writes flat translation values for the given language column.
+// It returns the number of cells written and a list of keys that were not found in the sheet.
+func (c *Client) UpdateTranslations(lang string, translations map[string]string) (int, []string, error) {
+	langs, rows, err := c.ReadAll()
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// Locate the column index for the requested language (1-based for Sheets A=1).
+	// Header layout: col1=key, col2=base, then each lang in order.
+	langColIndex := -1
+	for i, h := range langs {
+		if h == lang {
+			langColIndex = i + 2 // +1 for key col, +1 for 1-based
+			break
+		}
+	}
+	if langColIndex == -1 {
+		return 0, nil, fmt.Errorf("language column %q not found in sheet (run 'hata push' first)", lang)
+	}
+
+	// Build a key→row lookup.
+	rowByKey := make(map[string]Row, len(rows))
+	for _, row := range rows {
+		rowByKey[row.Key] = row
+	}
+
+	var updates []CellUpdate
+	var missing []string
+
+	for key, value := range translations {
+		r, ok := rowByKey[key]
+		if !ok {
+			missing = append(missing, key)
+			continue
+		}
+		updates = append(updates, CellUpdate{
+			RowIndex: r.RowIndex,
+			ColIndex: langColIndex,
+			Value:    value,
+		})
+	}
+
+	if err := c.BatchUpdateCells(updates); err != nil {
+		return 0, missing, err
+	}
+	return len(updates), missing, nil
+}
+
+// DeleteRows removes the given 1-based row indices from the sheet.
+// Rows are deleted bottom-up to avoid index shifting.
+func (c *Client) DeleteRows(rowIndices []int) error {
+	if len(rowIndices) == 0 {
+		return nil
+	}
+
+	// Resolve the numeric sheetId for the named tab.
+	spreadsheet, err := c.service.Spreadsheets.Get(c.sheetID).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get spreadsheet metadata: %w", err)
+	}
+	var tabID int64
+	found := false
+	for _, s := range spreadsheet.Sheets {
+		if s.Properties.Title == c.sheetName {
+			tabID = s.Properties.SheetId
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("sheet tab %q not found", c.sheetName)
+	}
+
+	// Sort descending so deleting one row does not shift the next.
+	sorted := make([]int, len(rowIndices))
+	copy(sorted, rowIndices)
+	for i := 0; i < len(sorted)-1; i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j] > sorted[i] {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+
+	// Build one DeleteDimension request per row.
+	requests := make([]*sheets.Request, 0, len(sorted))
+	for _, rowIdx := range sorted {
+		zero := int64(rowIdx - 1)
+		requests = append(requests, &sheets.Request{
+			DeleteDimension: &sheets.DeleteDimensionRequest{
+				Range: &sheets.DimensionRange{
+					SheetId:    tabID,
+					Dimension:  "ROWS",
+					StartIndex: zero,
+					EndIndex:   zero + 1,
+				},
+			},
+		})
+	}
+
+	_, err = c.service.Spreadsheets.BatchUpdate(c.sheetID, &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: requests,
+	}).Do()
+	if err != nil {
+		return fmt.Errorf("failed to delete rows: %w", err)
+	}
+	return nil
+}

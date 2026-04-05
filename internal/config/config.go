@@ -9,12 +9,13 @@ import (
 const DefaultConfigFile = "i18n.config.yml"
 
 type Config struct {
-	ProjectID string    `yaml:"project_id"`
-	Sheet     SheetConf `yaml:"sheet"`
-	Auth      AuthConf  `yaml:"auth"`
-	Languages []string  `yaml:"languages"`
-	Paths     PathConf  `yaml:"paths"`
-	Options   Options   `yaml:"options"`
+	ProjectID string            `yaml:"project_id"`
+	Sheet     SheetConf         `yaml:"sheet"`
+	Auth      AuthConf          `yaml:"auth"`
+	Languages []string          `yaml:"languages"`
+	Aliases   map[string]string `yaml:"aliases,omitempty"`
+	Paths     PathConf          `yaml:"paths"`
+	Options   Options           `yaml:"options"`
 }
 
 type SheetConf struct {

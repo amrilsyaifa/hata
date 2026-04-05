@@ -44,9 +44,16 @@ func runPull(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 
+	fileKey := func(lang string) string {
+		if alias, ok := cfg.Aliases[lang]; ok && alias != "" {
+			return alias
+		}
+		return lang
+	}
+
 	langData := make(map[string]map[string]string, len(cfg.Languages))
 	for _, lang := range cfg.Languages {
-		langData[lang] = make(map[string]string)
+		langData[fileKey(lang)] = make(map[string]string)
 	}
 
 	warnings := 0
@@ -58,11 +65,11 @@ func runPull(_ *cobra.Command, _ []string) error {
 				warnings++
 				continue
 			}
-			langData[lang][row.Key] = val
+			langData[fileKey(lang)][row.Key] = val
 		}
 	}
 
-	if err := i18n.GenerateLocaleFiles(cfg.Paths.Output, langData, cfg.Options.SortKeys); err != nil {
+	if err := i18n.GenerateLocaleFiles(cfg.Paths.Output, langData, cfg.Options.SortKeys, cfg.Options.NestedJSON); err != nil {
 		return err
 	}
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	idiff "github.com/amrilsyaifa/hata/internal/diff"
 	"github.com/amrilsyaifa/hata/internal/auth"
+	idiff "github.com/amrilsyaifa/hata/internal/diff"
 	"github.com/amrilsyaifa/hata/internal/i18n"
 	"github.com/amrilsyaifa/hata/internal/sheet"
 	"github.com/spf13/cobra"
