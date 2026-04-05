@@ -12,6 +12,7 @@
 > A lightweight **Translation Management System (TMS)** — sync i18n translation keys between your codebase and Google Sheets with a single CLI command.
 
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue)](https://golang.org)
+[![CI](https://github.com/amrilsyaifa/hata/actions/workflows/ci.yml/badge.svg)](https://github.com/amrilsyaifa/hata/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Author](https://img.shields.io/badge/author-amrilsyaifa-orange)](https://github.com/amrilsyaifa)
 
@@ -552,6 +553,48 @@ Dir['config/locales/*.json'].each do |f|
   File.write("config/locales/#{lang}.yml", { lang => data }.to_yaml)
 end
 ```
+
+---
+
+## Development
+
+### Running Tests
+
+The project has unit tests covering all internal packages. Run them locally with:
+
+```bash
+go test ./internal/...
+```
+
+Run with verbose output and the race detector (mirrors what CI runs):
+
+```bash
+go test -v -race -count=1 ./internal/...
+```
+
+| Package | What's covered |
+|---|---|
+| `internal/auth` | `saveToken`, `loadToken`, token file creation, `savingTokenSource` persist / no-write |
+| `internal/config` | Round-trip YAML save/load, missing file, invalid YAML |
+| `internal/diff` | In-sync, missing-in-sheet, unused-in-base, empty input, sorted output |
+| `internal/i18n` | `ReadBase` (valid/missing/bad JSON), `SortedKeys`, `FlatToNested` (simple/nested/deep/empty), `GenerateLocaleFiles` (flat & nested) |
+| `internal/locale` | `Display` format, `CodeFromDisplay` roundtrip, unique locale codes, common locale presence |
+
+### Continuous Integration
+
+Every pull request targeting `main` must pass two required checks defined in [.github/workflows/ci.yml](.github/workflows/ci.yml):
+
+| Job | What it does |
+|---|---|
+| **Test** | `go build ./...` + `go test -v -race -count=1 ./...` |
+| **Lint** | `golangci-lint` with a 5-minute timeout |
+
+The **Merge** button on a PR is disabled until both checks are green. To enforce this hard requirement, enable branch protection in GitHub:
+
+1. Go to **Settings → Branches → Add rule** for `main`
+2. Enable **"Require status checks to pass before merging"**
+3. Add `Test` and `Lint` as required status checks
+4. Enable **"Require branches to be up to date before merging"**
 
 ---
 
